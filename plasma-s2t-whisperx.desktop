@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=WhisperX Recording
+Exec=/home/$USER/src/plasma-s2t-whisperx/launch.sh
+Icon=audio-input-microphone
+Type=Application
+Categories=Utility;AudioVideo;
+Comment=Record audio and transcribe with WhisperX
+Terminal=false
