@@ -8,12 +8,11 @@ Window {
     id: root
     width: 350
     height: 120
-    visible: true
-    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus | Qt.WindowTransparentForInput | Qt.Tool
+    flags: Qt.ToolTip | Qt.FramelessWindowHint | Qt.WindowTransparentForInput | Qt.WindowDoesNotAcceptFocus
     color: "transparent"
-    opacity: 0
+    // opacity removed from Window
 
-    property real audioLevel: audioAnalyzer.level
+    property real audioLevel: audioAnalyzer ? audioAnalyzer.level : 0
     property bool recording: false
     property string statusText: "Recording..."
     property bool finishedProcessing: false
@@ -22,13 +21,13 @@ Window {
         if (!recording) {
             // We wait for finishedProcessing to fade out
         } else {
-            opacity = 1
+            container.opacity = 1
         }
     }
 
     onFinishedProcessingChanged: {
         if (finishedProcessing) {
-            opacity = 0
+            container.opacity = 0
             timer.start()
         }
     }
@@ -46,6 +45,11 @@ Window {
         color: Qt.rgba(0.1, 0.1, 0.1, 0.9)
         border.color: recording ? "#ff4444" : "#4444ff"
         border.width: 3
+        opacity: 0 // Start invisible
+
+        Behavior on opacity {
+            NumberAnimation { duration: 300 }
+        }
 
         ColumnLayout {
             anchors.centerIn: parent
@@ -110,10 +114,6 @@ Window {
                 }
             }
         }
-    }
-
-    Behavior on opacity {
-        NumberAnimation { duration: 300 }
     }
 
     Timer {

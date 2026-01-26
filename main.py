@@ -1,8 +1,12 @@
 import sys
 import os
+
+# Suppress Qt warnings
+os.environ["QT_LOGGING_RULES"] = "qt.core.qfuture.continuations=false"
+
 import subprocess
 import threading
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtGui import QGuiApplication, QWindow
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QIODevice, Qt, QTimer
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
@@ -10,6 +14,7 @@ from audio_analyzer import AudioAnalyzer
 
 class Controller(QObject):
     statusChanged = pyqtSignal(str)
+# ... (rest of class unchanged, I need to match context for replace)
     finished = pyqtSignal()
 
     def __init__(self, engine, analyzer):
@@ -103,7 +108,7 @@ class Controller(QObject):
             self.finished.emit()
 
 def main():
-    app = QApplication(sys.argv)
+    app = QGuiApplication(sys.argv)
     app.setQuitOnLastWindowClosed(True)
     
     server_name = "plasma-s2t-whisperx-server"
@@ -131,21 +136,19 @@ def main():
         sys.exit(-1)
         
     window = engine.rootObjects()[0]
-    # Reverting to a more stable flag set while keeping the aggressive raise timer
-    window.setFlags(Qt.WindowType.FramelessWindowHint | 
-                   Qt.WindowType.WindowStaysOnTopHint | 
-                   Qt.WindowType.WindowDoesNotAcceptFocus | 
-                   Qt.WindowType.WindowTransparentForInput | 
-                   Qt.WindowType.Tool)
     
-    # Force visibility and stacking
-    window.show()
-    window.raise_()
+    # Create a dummy parent window for ToolTip behavior on Wayland
+    dummy_window = QWindow()
+    dummy_window.setFlags(Qt.WindowType.Window | Qt.WindowType.WindowStaysOnBottomHint | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowDoesNotAcceptFocus)
+    dummy_window.resize(1, 1)
+    dummy_window.setPosition(-100, -100)
+    dummy_window.setOpacity(0)
+    dummy_window.setVisible(True)
     
-    # Periodically force to top
-    raise_timer = QTimer()
-    raise_timer.timeout.connect(window.raise_)
-    raise_timer.start(200) 
+    window.setTransientParent(dummy_window)
+    
+    # Force visibility
+    window.setVisible(True)
     
     controller = Controller(engine, analyzer)
     engine.rootContext().setContextProperty("controller", controller)

@@ -1,0 +1,11 @@
+[project]
+name = "plasma-s2t-whisperx"
+version = "0.1.0"
+description = "A PyQt6 Speech-to-Text utility using WhisperX and ydotool for Plasma/Linux"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PyQt6>=6.0.0",
+]
+
+[tool.uv]
