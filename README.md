@@ -18,9 +18,10 @@ sudo pacman -S uv ydotool ffmpeg
 ### 2. Configure ydotool
 `ydotool` requires a background daemon to function without root privileges for the client.
 
-1.  Start the daemon (usually requires root or a systemd user service):
+1.  Start the daemon
     ```bash
-    sudo systemctl enable --now ydotool
+    systemctl --user enable ydotool.service
+    systemctl --user start ydotool.service
     ```
 2.  Ensure your user has permission to write to the ydotool socket (typically `/run/ydotool/socket`).
 
@@ -38,6 +39,15 @@ uv sync
 This installs `PyQt6` into a local `.venv` directory.
 
 **Note:** `whisperx` is **not** installed in this virtual environment. The application uses `uvx` (part of `uv`) to download and run `whisperx` in its own isolated environment automatically when you transcribe audio.
+
+```bash
+uv tool install whisperx --python=3.12
+```
+
+Validate this works with:
+```bash
+uvx whisperx --version
+```
 
 ## Test Instructions
 
