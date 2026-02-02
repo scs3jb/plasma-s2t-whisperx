@@ -1,3 +1,4 @@
 #!/bin/bash
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-"$DIR/.venv/bin/python" "$DIR/main.py"
+PROFILE="${1:-balanced}"
+"$DIR/.venv/bin/python" "$DIR/main.py" --profile "$PROFILE"

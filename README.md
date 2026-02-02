@@ -64,18 +64,51 @@ uv run python test_app.py
 You can launch the application using the provided script (recommended):
 
 ```bash
-./launch.sh
+./launch.sh [profile]
 ```
 
 Or manually using the virtual environment python:
 
 ```bash
-.venv/bin/python main.py
+.venv/bin/python main.py --profile [profile]
 ```
+
+See "Transcription Profiles" for available profiles. If no profile is specified, it defaults to `balanced`.
+
+## Transcription Profiles
+
+This application allows you to choose from several transcription profiles, which trade off speed for accuracy. The available profiles are:
+
+*   `ultrafast`: Fastest, but least accurate. (Uses Tiny model)
+*   `fast`: Also uses the Tiny model, same as `ultrafast`.
+*   `balanced`: Balanced speed and accuracy. (Uses Base model)
+*   `accurate`: Slower, but more accurate. (Uses Small model)
+*   `high_accuracy`: Slowest, but most accurate. (Uses Large-v2 model)
+
+You can specify the profile when you launch the application. For example, to use the `ultrafast` profile:
+
+```bash
+./launch.sh ultrafast
+```
+
+### Configuring Profiles in KDE Plasma
+
+You can create multiple global shortcuts in KDE Plasma to easily switch between profiles. For example:
+
+1.  Open **System Settings** -> **Shortcuts** -> **Custom Shortcuts**.
+2.  Right-click and select **New** -> **Global Shortcut** -> **Command/URL**.
+3.  Create an entry for your primary profile (e.g., "WhisperX Balanced"):
+    *   **Trigger:** Set a shortcut (e.g., `Meta+R`).
+    *   **Action:** Set the command to `/path/to/your/plasma-s2t-whisperx/launch.sh balanced`.
+4.  Create another entry for a faster profile (e.g., "WhisperX Ultrafast"):
+    *   **Trigger:** Set a different shortcut (e.g., `Meta+Shift+R`).
+    *   **Action:** Set the command to `/path/to/your/plasma-s2t-whisperx/launch.sh ultrafast`.
+
+Now you can use different shortcuts to launch the application with different transcription profiles.
 
 ## Usage
 
-1.  **Launch:** Run the script. It runs in the background/overlay.
+1.  **Launch:** Run the script with the desired profile. It runs in the background/overlay.
 2.  **Toggle Recording:** Run the script *again* (or send "toggle" to its local socket). Ideally, bind `./launch.sh` to a global custom shortcut in KDE Plasma (e.g., `Meta+R`).
 3.  **Speak:** Speak into your microphone.
 4.  **Transcribe:** Trigger the shortcut again to stop recording.

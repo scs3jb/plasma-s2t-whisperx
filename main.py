@@ -1,5 +1,6 @@
 import sys
 import os
+import argparse
 
 # Suppress Qt warnings
 os.environ["QT_LOGGING_RULES"] = "qt.core.qfuture.continuations=false"
@@ -17,7 +18,7 @@ class Controller(QObject):
 # ... (rest of class unchanged, I need to match context for replace)
     finished = pyqtSignal()
 
-    def __init__(self, engine, analyzer):
+    def __init__(self, engine, analyzer, profile="balanced"):
         super().__init__()
         self.engine = engine
         self.analyzer = analyzer
@@ -25,6 +26,7 @@ class Controller(QObject):
         self.is_processing = False
         self.audio_path = "/tmp/whisper_recording.wav"
         self.transcript_dir = "/tmp/whisper_transcript"
+        self.profile = profile
         
     @pyqtSlot()
     def toggle_recording(self):
@@ -59,25 +61,58 @@ class Controller(QObject):
         try:
             if not os.path.exists(self.transcript_dir):
                 os.makedirs(self.transcript_dir, exist_ok=True)
-            
+
+            profiles = {
+                "ultrafast": {
+                    "model": "tiny", "compute_type": "int8", "beam_size": "1",
+                    "best_of": "1", "temperature": "0", "no_align": True,
+                    "batch_size": "16", "threads": "12"
+                },
+                "fast": {
+                    "model": "tiny", "compute_type": "int8", "beam_size": "1",
+                    "best_of": "1", "temperature": "0", "no_align": True,
+                    "batch_size": "16", "threads": "12"
+                },
+                "balanced": {
+                    "model": "base", "compute_type": "int8", "beam_size": "3",
+                    "best_of": "3", "temperature": "0.1", "no_align": True,
+                    "batch_size": "8", "threads": "10"
+                },
+                "accurate": {
+                    "model": "small", "compute_type": "int8", "beam_size": "5",
+                    "best_of": "5", "temperature": "0", "no_align": False,
+                    "batch_size": "4", "threads": "8"
+                },
+                "high_accuracy": {
+                    "model": "large-v2", "compute_type": "int8", "beam_size": "5",
+                    "best_of": "5", "temperature": "0", "no_align": False,
+                    "batch_size": "1", "threads": "4"
+                }
+            }
+
+            # Get profile, default to balanced
+            profile_settings = profiles.get(self.profile, profiles["balanced"])
+
             # WhisperX command
             cmd = [
                 "uvx", "--quiet", "whisperx", self.audio_path,
-                "--model", "base",
+                "--model", profile_settings["model"],
                 "--language", "en",
                 "--device", "cpu",
-                "--compute_type", "int8",
+                "--compute_type", profile_settings["compute_type"],
                 "--output_dir", self.transcript_dir,
                 "--output_format", "txt",
-                "--batch_size", "8",
-                "--beam_size", "3",
-                "--best_of", "3",
-                "--temperature", "0.1",
-                "--no_align",
+                "--batch_size", profile_settings["batch_size"],
+                "--beam_size", profile_settings["beam_size"],
+                "--best_of", profile_settings["best_of"],
+                "--temperature", profile_settings["temperature"],
                 "--suppress_numerals",
-                "--threads", "10",
+                "--threads", profile_settings["threads"],
                 "--print_progress", "False"
             ]
+            
+            if profile_settings["no_align"]:
+                cmd.append("--no_align")
             
             env = os.environ.copy()
             env["TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD"] = "true"
@@ -108,6 +143,10 @@ class Controller(QObject):
             self.finished.emit()
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--profile", default="balanced", help="Transcription profile")
+    args, unknown = parser.parse_known_args()
+    
     app = QGuiApplication(sys.argv)
     app.setQuitOnLastWindowClosed(True)
     
@@ -150,7 +189,7 @@ def main():
     # Force visibility
     window.setVisible(True)
     
-    controller = Controller(engine, analyzer)
+    controller = Controller(engine, analyzer, args.profile)
     engine.rootContext().setContextProperty("controller", controller)
     
     # Connect signals to QML
