@@ -14,7 +14,8 @@ Window {
 
     property real audioLevel: audioAnalyzer ? audioAnalyzer.level : 0
     property bool recording: false
-    property string statusText: "Recording..."
+    property bool transcribing: controller.transcribing
+    property string statusText: "Initializing..."
     property bool finishedProcessing: false
 
     onRecordingChanged: {
@@ -43,9 +44,9 @@ Window {
         anchors.fill: parent
         radius: 20
         color: Qt.rgba(0.1, 0.1, 0.1, 0.9)
-        border.color: recording ? "#ff4444" : "#4444ff"
+        border.color: (recording && !transcribing) ? "#ff4444" : "#4444ff"
         border.width: 3
-        opacity: 0 // Start invisible
+        opacity: 1
 
         Behavior on opacity {
             NumberAnimation { duration: 300 }
@@ -61,7 +62,7 @@ Window {
                 width: 60
                 height: 60
                 radius: 30
-                color: recording ? "#ff4444" : "#333333"
+                color: (recording && !transcribing) ? "#ff4444" : "#333333"
                 
                 Text {
                     anchors.centerIn: parent

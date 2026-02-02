@@ -2,17 +2,12 @@ import unittest
 import sys
 from unittest.mock import MagicMock, patch
 from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import pyqtSignal, QObject
 
-# Mock audio components before importing audio_analyzer
+# Mock dependencies before imports
 sys.modules['PyQt6.QtMultimedia'] = MagicMock()
-
-# Now we can import, but we need to ensure the real QObject is available if needed, 
-# or we just mock the whole AudioAnalyzer for logic tests.
-# However, if we want to test AudioAnalyzer logic, we need to be careful.
-
-# Let's use patch in the test methods instead of global mocking if possible, 
-# but the import itself might trigger things if not careful. 
-# audio_analyzer.py imports QAudioSource, etc. at top level.
+sys.modules['whisperx'] = MagicMock()
+sys.modules['numpy'] = MagicMock()
 
 class TestApp(unittest.TestCase):
     @classmethod
@@ -23,7 +18,6 @@ class TestApp(unittest.TestCase):
             cls.app = QApplication.instance()
 
     def test_analyzer_init(self):
-        # We need to re-import or use patch to mock the QtMultimedia components used inside AudioAnalyzer
         with patch('audio_analyzer.QAudioSource') as mock_source, \
              patch('audio_analyzer.QMediaDevices') as mock_devices:
             
@@ -32,46 +26,57 @@ class TestApp(unittest.TestCase):
             self.assertIsNotNone(analyzer)
             self.assertEqual(analyzer.level, 0.0)
             
-            # Verify mock interaction
             mock_devices.defaultAudioInput.assert_called()
             mock_source.assert_called()
 
     def test_controller_logic(self):
-        # Test Controller logic without running the full app
-        # We need to mock AudioAnalyzer and QQmlApplicationEngine
+        # We need to import Controller after mocking
+        # But Controller imports AudioProcessor/TranscriberThread which imports whisperx (handled above)
         from main import Controller
         
         mock_engine = MagicMock()
         mock_root = MagicMock()
         mock_engine.rootObjects.return_value = [mock_root]
         
+        # Mock Analyzer
         mock_analyzer = MagicMock()
+        mock_analyzer.audioDataReady.connect = MagicMock()
         
-        controller = Controller(mock_engine, mock_analyzer)
-        
-        # Test initial state
-        self.assertFalse(controller.is_recording)
-        self.assertFalse(controller.is_processing)
-        
-        # Test toggle recording (Start)
-        with patch('os.remove') as mock_remove, \
-             patch('os.path.exists', return_value=False):
+        # Mock Threads
+        with patch('main.TranscriberThread') as MockTranscriber, \
+             patch('main.AudioProcessor') as MockProcessor:
             
+            mock_transcriber_instance = MockTranscriber.return_value
+            mock_transcriber_instance.statusUpdate = MagicMock()
+            mock_transcriber_instance.textReady = MagicMock()
+            
+            mock_processor_instance = MockProcessor.return_value
+            
+            controller = Controller(mock_engine, mock_analyzer)
+            
+            # Verify threads started
+            mock_transcriber_instance.start.assert_called()
+            mock_processor_instance.start.assert_called()
+            
+            # Test initial state
+            self.assertFalse(controller.is_recording)
+            
+            # Test toggle recording (Start)
             controller.toggle_recording()
             
             self.assertTrue(controller.is_recording)
             mock_analyzer.start_recording.assert_called()
             mock_root.setProperty.assert_called_with("recording", True)
 
-        # Test toggle recording (Stop)
-        with patch('threading.Thread') as mock_thread:
+            # Test toggle recording (Stop)
             controller.toggle_recording()
             
             self.assertFalse(controller.is_recording)
-            self.assertTrue(controller.is_processing)
             mock_analyzer.stop_recording.assert_called()
             mock_root.setProperty.assert_called_with("recording", False)
-            mock_thread.assert_called()
+            
+            # Should force transcribe
+            mock_processor_instance.force_transcribe.assert_called()
 
 if __name__ == '__main__':
     unittest.main()

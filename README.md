@@ -1,122 +1,83 @@
 # Plasma S2T WhisperX
 
-A Speech-to-Text utility for Linux (specifically targeted at KDE Plasma users, but works elsewhere) that uses `uvx` to run [WhisperX](https://github.com/m-bain/whisperX) for fast, local transcription and `ydotool` to type the text into the active window.
+A Speech-to-Text utility for Linux (specifically targeted at KDE Plasma users) that uses **WhisperX** for fast, local, real-time transcription and `ydotool` to type the text into the active window.
+
+## Features
+*   **Real-time Transcription:** Keeps the Whisper model loaded for instant response.
+*   **Multithreaded Architecture:** Prevents audio loss and UI freezes by separating audio capture, VAD analysis, and model inference into dedicated threads.
+*   **Automatic VAD (Voice Activity Detection):** Detects pauses in speech and automatically transcribes/types while you continue to record the next sentence.
+*   **Manual Toggle:** Optional manual control to force a final transcription and stop the service.
+*   **Minimal UI:** An unobtrusive overlay that visualizes your audio levels and provides clear status feedback.
+
+## Architecture & Lessons Learned
+
+During development, several key architectural decisions were made to ensure high performance:
+
+1.  **Concurrency is Key:** To avoid "Audio Loss" (dropped samples), audio capture must happen in a high-priority thread (the Main Thread in this case, tied to the Qt Event Loop). Heavy operations like Model Inference and simulating keyboard input (`ydotool`) are moved to a background `TranscriberThread`.
+2.  **VAD Pipeline:** A dedicated `AudioProcessor` thread handles energy-based endpointing. This allows the system to buffer audio continuously without blocking the capture pipeline.
+3.  **PyTorch Compatibility:** Modern PyTorch (2.6+) defaults to `weights_only=True` for security, which blocks many WhisperX/Pyannote checkpoints. This is bypassed using the `TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1` environment variable.
+4.  **UI States:**
+    *   **Red / "Listening":** Active recording. Stays active during automatic (VAD) transcription to provide a seamless dictation experience.
+    *   **Blue / "Transcribing":** Triggered only on manual stop to show the user that the final buffer is being processed before the app goes Idle.
+    *   **Blue / "Idle":** Standby mode.
 
 ## Prerequisites (Arch Linux)
 
-To run this application, you need several system dependencies installed via `pacman`.
-
 ### 1. System Tools
-*   **uv**: The modern Python package manager used to run this project and manage the WhisperX environment.
-*   **ydotool**: Used to simulate keyboard input to type the transcribed text.
-*   **ffmpeg**: Required by WhisperX for audio processing.
+*   **uv**: Python package manager.
+*   **ydotool**: For keyboard simulation.
+*   **ffmpeg**: Required by WhisperX.
 
 ```bash
 sudo pacman -S uv ydotool ffmpeg
 ```
 
 ### 2. Configure ydotool
-`ydotool` requires a background daemon to function without root privileges for the client.
+`ydotool` requires a background daemon.
+```bash
+systemctl --user enable ydotool.service
+systemctl --user start ydotool.service
+```
 
-1.  Start the daemon
-    ```bash
-    systemctl --user enable ydotool.service
-    systemctl --user start ydotool.service
-    ```
-2.  Ensure your user has permission to write to the ydotool socket (typically `/run/ydotool/socket`).
+## Setup & Build
 
-## Build Instructions
-
-This project uses `uv` for dependency management. To "build" (setup) the environment:
+This project uses `uv` for dependency management.
 
 1.  Clone this repository.
-2.  Sync the dependencies to create the virtual environment:
-
+2.  Sync dependencies into the virtual environment:
 ```bash
 uv sync
 ```
 
-This installs `PyQt6` into a local `.venv` directory.
-
-**Note:** `whisperx` is **not** installed in this virtual environment. The application uses `uvx` (part of `uv`) to download and run `whisperx` in its own isolated environment automatically when you transcribe audio.
-
-```bash
-uv tool install whisperx --python=3.12
-```
-
-Validate this works with:
-```bash
-uvx whisperx --version
-```
-
-## Test Instructions
-
-To verify the installation and dependencies:
-
-```bash
-uv run python test_app.py
-```
-
-*Note: The test checks if the application can initialize. If running in a headless environment (no audio/display), it might timeout or fail to initialize Audio/GUI subsystems.*
-
 ## Running the Application
 
-You can launch the application using the provided script (recommended):
+Launch the application using the provided script:
 
 ```bash
 ./launch.sh [profile]
 ```
 
-Or manually using the virtual environment python:
+### Transcription Profiles
+*   `ultrafast` / `fast` (Tiny model)
+*   `balanced` (Base model) - **Default**
+*   `accurate` (Small model)
+*   `high_accuracy` (Large-v2 model)
 
-```bash
-.venv/bin/python main.py --profile [profile]
-```
-
-See "Transcription Profiles" for available profiles. If no profile is specified, it defaults to `balanced`.
-
-## Transcription Profiles
-
-This application allows you to choose from several transcription profiles, which trade off speed for accuracy. The available profiles are:
-
-*   `ultrafast`: Fastest, but least accurate. (Uses Tiny model)
-*   `fast`: Also uses the Tiny model, same as `ultrafast`.
-*   `balanced`: Balanced speed and accuracy. (Uses Base model)
-*   `accurate`: Slower, but more accurate. (Uses Small model)
-*   `high_accuracy`: Slowest, but most accurate. (Uses Large-v2 model)
-
-You can specify the profile when you launch the application. For example, to use the `ultrafast` profile:
-
-```bash
-./launch.sh ultrafast
-```
+## Usage & Shortcuts
 
 ### Configuring Profiles in KDE Plasma
 
-You can create multiple global shortcuts in KDE Plasma to easily switch between profiles. For example:
-
 1.  Open **System Settings** -> **Shortcuts** -> **Custom Shortcuts**.
-2.  Right-click and select **New** -> **Global Shortcut** -> **Command/URL**.
-3.  Create an entry for your primary profile (e.g., "WhisperX Balanced"):
-    *   **Trigger:** Set a shortcut (e.g., `Meta+R`).
-    *   **Action:** Set the command to `/path/to/your/plasma-s2t-whisperx/launch.sh balanced`.
-4.  Create another entry for a faster profile (e.g., "WhisperX Ultrafast"):
-    *   **Trigger:** Set a different shortcut (e.g., `Meta+Shift+R`).
-    *   **Action:** Set the command to `/path/to/your/plasma-s2t-whisperx/launch.sh ultrafast`.
+2.  Create a **New Global Shortcut** (Command/URL).
+3.  **Toggle Recording:** Set the command to `/path/to/launch.sh balanced` (e.g., bind to `Meta+R`).
+4.  **Quit App:** Set the command to `/path/to/launch.sh quit` (e.g., bind to `Meta+Shift+Q`).
 
-Now you can use different shortcuts to launch the application with different transcription profiles.
-
-## Usage
-
-1.  **Launch:** Run the script with the desired profile. It runs in the background/overlay.
-2.  **Toggle Recording:** Run the script *again* (or send "toggle" to its local socket). Ideally, bind `./launch.sh` to a global custom shortcut in KDE Plasma (e.g., `Meta+R`).
-3.  **Speak:** Speak into your microphone.
-4.  **Transcribe:** Trigger the shortcut again to stop recording.
-    *   The app will invoke `whisperx` via `uvx` to transcribe the audio.
-    *   Once finished, it uses `ydotool` to type the text into your active window.
+### Workflow
+1.  **Start:** Press your hotkey. The UI appears Red and begins "Listening".
+2.  **Dictate:** Speak naturally. When you pause, the app automatically types in the background.
+3.  **Stop/Flush:** Press the hotkey again. The UI turns Blue, processes any remaining audio, and goes Idle.
+4.  **Exit:** Use the dedicated quit shortcut or run `./launch.sh quit`.
 
 ## Troubleshooting
-
-*   **First Run Delay:** The first time you transcribe, `uvx` will download `whisperx` and its dependencies (PyTorch, etc.). This may take a while. Subsequent runs will be faster.
-*   **Typing Fails:** Verify `ydotool` works by running `ydotool type "test"` in a terminal.
-*   **Audio Issues:** Ensure PipeWire/PulseAudio is running and configured.
+*   **Audio Loss:** If soundwaves freeze, ensure no other process is blocking the Python interpreter. The current architecture minimizes this by using separate threads.
+*   **Typing Fails:** Verify `ydotool` permissions. Your user must have access to the ydotool socket.
