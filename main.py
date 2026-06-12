@@ -40,9 +40,9 @@ class TranscriberThread(QThread):
 
     def run(self):
         try:
-            import whisperx
+            from faster_whisper import WhisperModel
         except ImportError:
-            self.statusUpdate.emit("Error: whisperx not found")
+            self.statusUpdate.emit("Error: faster_whisper not found")
             return
 
         self.statusUpdate.emit("Loading Model...")
@@ -54,12 +54,19 @@ class TranscriberThread(QThread):
         }
         model_size = models.get(self.profile, "base")
         
+        beam_sizes = {
+            "ultrafast": 1, "fast": 1,
+            "balanced": 3,
+            "accurate": 5, "high_accuracy": 5
+        }
+        self.beam_size = beam_sizes.get(self.profile, 3)
+        
         try:
-            self.model = whisperx.load_model(
+            self.model = WhisperModel(
                 model_size, 
-                self.device, 
+                device=self.device, 
                 compute_type="int8",
-                language="en"
+                cpu_threads=0
             )
             print("Model loaded successfully")
             self.statusUpdate.emit("Idle")
@@ -83,22 +90,29 @@ class TranscriberThread(QThread):
                 print(f"Processing buffer: {len(audio_data)} samples")
                 
                 try:
-                    result = self.model.transcribe(audio_data, batch_size=1)
+                    segments, info = self.model.transcribe(
+                        audio_data, 
+                        language="en",
+                        beam_size=self.beam_size,
+                        condition_on_previous_text=False,
+                        without_timestamps=True,
+                        vad_filter=True
+                    )
                     text = ""
-                    for segment in result["segments"]:
-                        text += segment["text"] + " "
+                    for segment in segments:
+                        text += segment.text + " "
                     
                     text = text.strip()
                     if text:
                         print(f"Transcribed: '{text}'")
                         # Type directly in this thread to avoid blocking Main Thread
                         subprocess.run(["ydotool", "type", text + " "])
-                    
-                    if notify:
-                        self.statusUpdate.emit("Listening...")
                         
                 except Exception as e:
                     print(f"Inference Error: {e}")
+                finally:
+                    if notify:
+                        self.statusUpdate.emit("Listening...")
                 
             except Exception as e:
                 print(f"Transcriber Loop Error: {e}")

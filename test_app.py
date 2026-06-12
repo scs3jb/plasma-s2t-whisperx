@@ -7,6 +7,7 @@ from PyQt6.QtCore import pyqtSignal, QObject
 # Mock dependencies before imports
 sys.modules['PyQt6.QtMultimedia'] = MagicMock()
 sys.modules['whisperx'] = MagicMock()
+sys.modules['faster_whisper'] = MagicMock()
 sys.modules['numpy'] = MagicMock()
 
 class TestApp(unittest.TestCase):
