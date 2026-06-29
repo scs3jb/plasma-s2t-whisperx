@@ -1,5 +1,9 @@
 # Plasma S2T WhisperX
 
+> [!WARNING]
+> **This project is deprecated and no longer maintained.**
+> Please use **[FluidSiren](https://github.com/scs3jb/FluidSiren)** instead, which supersedes this project.
+
 A Speech-to-Text utility for Linux (specifically targeted at KDE Plasma users) that uses **WhisperX** for fast, local, real-time transcription and `ydotool` to type the text into the active window.
 
 ## Features
